@@ -1,0 +1,15 @@
+# DriftBench-CF v1 generation config (synthetic agents). Run with `make data`.
+seed: 20261112
+output_dir: data/driftbench-cf
+
+bench:
+  replicates: 1          # runs per (environment, agent, drift type) cell -> 220 runs
+  k: 6                   # seed-paired forks per arm (power analysis)
+  horizon: 20            # H, preregistered
+  max_steps: 60
+  grid_every: 5
+  grid_start: 2
+  grid_max_points: 6
+  stages: 4
+  step_budget: 5000000
+  min_onset_drop: 0.15

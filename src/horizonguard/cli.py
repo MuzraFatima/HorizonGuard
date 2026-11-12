@@ -111,6 +111,25 @@ def _cmd_pilot(args: argparse.Namespace) -> int:
     return 1 if unusable else 0
 
 
+def _cmd_data(args: argparse.Namespace) -> int:
+    from horizonguard.bench.generate import BenchConfig, generate
+    from horizonguard.repro import load_config
+
+    raw = load_config(args.config)
+    bench = dict(raw.get("bench", {}))
+    bench.setdefault("seed", raw.get("seed", 20261112))
+    if args.replicates is not None:
+        bench["replicates"] = args.replicates
+    cfg = BenchConfig.from_dict(bench)
+    out = args.out or raw.get("output_dir", "data/driftbench-cf")
+    manifest = generate(cfg, out)
+    print(
+        f"DriftBench-CF: {manifest['runs']} runs, {manifest['prefixes']} labelled prefixes, "
+        f"{manifest['agent_steps']:,} agent steps -> {out}"
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -155,6 +174,12 @@ def build_parser() -> argparse.ArgumentParser:
     pilot.add_argument("--seed", type=int, default=0)
     pilot.add_argument("--out", help="also write trajectories to this JSONL file")
     pilot.set_defaults(func=_cmd_pilot)
+
+    data = sub.add_parser("data", help="generate DriftBench-CF trajectories and fork labels")
+    data.add_argument("--config", default="configs/driftbench.yaml")
+    data.add_argument("--out", help="output directory (defaults to the config)")
+    data.add_argument("--replicates", type=int, help="override runs per cell")
+    data.set_defaults(func=_cmd_data)
 
     return parser
 
