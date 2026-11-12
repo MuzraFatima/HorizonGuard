@@ -151,6 +151,58 @@ def _cmd_audit(args: argparse.Namespace) -> int:
     return 0 if gate_passes(arm_noise(records)) else 1
 
 
+def _cmd_baselines(args: argparse.Namespace) -> int:
+    from horizonguard.baselines import FeatureRiskMonitor, MarkovMonitor
+    from horizonguard.eval.leaderboard import (
+        leaderboard,
+        load_bench,
+        paradox_check,
+        shortcut_check,
+        to_markdown,
+    )
+
+    bench = load_bench(args.data)
+    monitors = [FeatureRiskMonitor(), MarkovMonitor()] if args.quick else None
+    rows = leaderboard(bench, monitors)
+    sc = shortcut_check(bench, n_boot=100 if args.quick else 1000)
+    px = paradox_check(bench)
+    lo, hi = sc["mae_gain_ci"]
+    lines = [
+        "# Baseline leaderboard",
+        "",
+        to_markdown(rows),
+        "## Reality check 1: drift beyond shortcuts",
+        "",
+        f"- rollout MAE, full features {sc['mae_full']:.3f} vs shortcut-only "
+        f"{sc['mae_shortcut']:.3f}; gain {sc['mae_gain']:.3f} (95% CI {lo:.3f} to {hi:.3f})",
+        f"- AUROC full {sc['auroc_full']:.3f} vs shortcut {sc['auroc_shortcut']:.3f}; "
+        f"within-template {sc['within_template_auroc_full']:.3f} vs "
+        f"{sc['within_template_auroc_shortcut']:.3f}",
+        f"- verdict: {'PASS' if sc['passes'] else 'FAIL'}",
+        "",
+        "## Reality check 2: Intervention Paradox (probability alarm, reminder)",
+        "",
+        "| agent | alarm rate | recovery r | disruption d | net benefit |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for row in px["agents"]:
+        lines.append(
+            f"| {row['agent']} | {row['alarm_rate']:.2f} | {row['recovery']:.3f} | "
+            f"{row['disruption']:.3f} | {row['net_benefit']:.4f} |"
+        )
+    lines += [
+        "",
+        f"- overall net benefit (w = {px['weight']}): {px['overall_net_benefit']:.4f}",
+        f"- agents hurt by the alarm: {', '.join(px['agents_hurt']) or 'none'}",
+        f"- verdict: {'PASS' if px['disruption_nontrivial'] else 'FAIL'}",
+    ]
+    text = "\n".join(lines) + "\n"
+    print(text)
+    if args.write:
+        Path(args.write).write_text(text, encoding="utf-8", newline="\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -208,6 +260,12 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--arm", type=int, default=3, help="arm index for replicate checks")
     audit.add_argument("--write", help="also write the report to this file")
     audit.set_defaults(func=_cmd_audit)
+
+    bl = sub.add_parser("baselines", help="baseline leaderboard and reality checks")
+    bl.add_argument("--data", default="data/driftbench-cf")
+    bl.add_argument("--write", help="also write the report to this file")
+    bl.add_argument("--quick", action="store_true", help="two monitors, fewer bootstraps")
+    bl.set_defaults(func=_cmd_baselines)
 
     return parser
 
