@@ -28,6 +28,7 @@ class StepData:
     t: np.ndarray  # (n,)
     agent: np.ndarray  # (n,)
     feature_names: list[str]
+    fidelity: np.ndarray | None = None  # (n,) labeller fidelity, auxiliary target only
 
     def __len__(self) -> int:
         return len(self.state)
@@ -49,7 +50,7 @@ def build_step_data(
     min_drop: float = 0.15,
 ) -> StepData:
     featurizer = featurizer or PrefixFeaturizer()
-    xs, states, nexts, run_idx, ts, agents = [], [], [], [], [], []
+    xs, states, nexts, run_idx, ts, agents, fids = [], [], [], [], [], [], []
     for i, traj in enumerate(runs):
         labels = run_states(traj, min_drop)
         for t in range(len(traj)):
@@ -59,6 +60,7 @@ def build_step_data(
             run_idx.append(i)
             ts.append(t + 1)
             agents.append(traj.steps[0].agent)
+            fids.append(traj.steps[t].fidelity if traj.steps[t].fidelity is not None else np.nan)
     return StepData(
         np.array(xs),
         np.array(states),
@@ -67,4 +69,5 @@ def build_step_data(
         np.array(ts),
         np.array(agents),
         featurizer.feature_names(),
+        np.array(fids, dtype=float),
     )
