@@ -34,3 +34,4 @@ dashboard/dist/
 # Private planning material
 *.pdf
 data/driftbench-cf/
+*.tsbuildinfo
