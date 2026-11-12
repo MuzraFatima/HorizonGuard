@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 
-from horizonguard.bench.generate import BenchConfig, generate
 from horizonguard.cli import main
 from horizonguard.eval.leaderboard import load_bench
 from horizonguard.hazard.comparators import LogisticHazard, PCAAnomaly, SingleEventClassifier
@@ -14,24 +13,10 @@ from horizonguard.hazard.evaluate import (
 )
 from horizonguard.hazard.model import MultiStateHazard
 
-CFG = BenchConfig(
-    envs=["research", "sysadmin"],
-    agents=["birch-react", "delta-react", "cobalt-react", "ember-react"],
-    drift_types=["nudge", "distractor", "context"],
-    replicates=2,
-    k=4,
-    horizon=10,
-    max_steps=30,
-    grid_max_points=4,
-    stages=1,
-)
-
 
 @pytest.fixture(scope="module")
-def bench_dir(tmp_path_factory):
-    out = tmp_path_factory.mktemp("hz")
-    generate(CFG, out)
-    return out
+def bench_dir(small_bench):
+    return small_bench
 
 
 @pytest.fixture(scope="module")

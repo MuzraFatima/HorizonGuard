@@ -3,7 +3,6 @@ import math
 import pytest
 
 from horizonguard.baselines import FeatureRiskMonitor, MarkovMonitor
-from horizonguard.bench.generate import BenchConfig, generate
 from horizonguard.cli import main
 from horizonguard.eval.leaderboard import (
     leaderboard,
@@ -13,24 +12,10 @@ from horizonguard.eval.leaderboard import (
     to_markdown,
 )
 
-CFG = BenchConfig(
-    envs=["research", "sysadmin"],
-    agents=["birch-react", "delta-react", "cobalt-react", "ember-react"],
-    drift_types=["nudge", "distractor", "context"],
-    replicates=2,
-    k=4,
-    horizon=10,
-    max_steps=30,
-    grid_max_points=4,
-    stages=1,
-)
-
 
 @pytest.fixture(scope="module")
-def bench_dir(tmp_path_factory):
-    out = tmp_path_factory.mktemp("lb")
-    generate(CFG, out)
-    return out
+def bench_dir(small_bench):
+    return small_bench
 
 
 def test_leaderboard_rows(bench_dir):
