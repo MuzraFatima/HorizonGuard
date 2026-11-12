@@ -228,10 +228,34 @@ def generate(cfg: BenchConfig, out_dir: str | Path) -> dict[str, Any]:
         "prefixes": n_prefixes,
         "agent_steps": total_steps,
         "stopped_early": stopped_early,
-        "files": {"trajectories": traj_path.name, "prefixes": prefix_path.name},
+        "files": {
+            "trajectories": traj_path.name,
+            "prefixes": prefix_path.name,
+            "splits": "splits.json",
+        },
     }
+    write_splits(out)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return manifest
+
+
+def write_splits(out_dir: str | Path) -> list[str]:
+    """Default and leave-one-out splits for the generated prefixes."""
+    from horizonguard.bench.splits import default_split, leave_one_out, save_splits
+
+    records = load_prefixes(out_dir)
+    if not records:
+        save_splits([], Path(out_dir) / "splits.json")
+        return []
+    families = sorted({r["family"] for r in records})
+    drifts = sorted({r["drift_type"] for r in records})
+    held_family = ["ember"] if "ember" in families and len(families) > 1 else []
+    held_drift = ["context"] if "context" in drifts and len(drifts) > 1 else []
+    splits = [default_split(records, held_family, held_drift)]
+    for axis in ("family", "scaffold", "env", "drift_type"):
+        splits.extend(leave_one_out(records, axis))
+    save_splits(splits, Path(out_dir) / "splits.json")
+    return [s.name for s in splits]
 
 
 def load_prefixes(out_dir: str | Path) -> list[dict[str, Any]]:

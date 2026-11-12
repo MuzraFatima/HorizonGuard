@@ -38,6 +38,8 @@ def test_manifest_and_files(bench):
     assert manifest["prefixes"] == len(prefixes) > 0
     assert (out / "trajectories.jsonl.gz").exists()
     assert json.loads((out / "manifest.json").read_text())["config_hash"] == manifest["config_hash"]
+    splits = json.loads((out / "splits.json").read_text())
+    assert "default" in splits and "loo-family-birch" in splits
 
 
 def test_prefix_labels_are_consistent(bench):
