@@ -23,7 +23,7 @@ def _cmd_gap_matrix(args: argparse.Namespace) -> int:
         print(f"gap matrix: {problem}", file=sys.stderr)
     if args.write:
         text = render_markdown(args.path) if args.path else render_markdown()
-        Path(args.write).write_text(text, encoding="utf-8")
+        Path(args.write).write_text(text, encoding="utf-8", newline="\n")
         print(f"wrote {args.write}")
     unverified = matrix.unverified()
     print(f"{len(matrix.works)} works, {len(unverified)} still need a full-text read")
