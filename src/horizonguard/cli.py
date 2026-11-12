@@ -43,6 +43,30 @@ def _cmd_scoop_watch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_budget(args: argparse.Namespace) -> int:
+    from horizonguard.budget import BudgetPlan, CostModel
+
+    plan = BudgetPlan(
+        forked_runs=args.runs,
+        grid_prefixes=args.grid,
+        strengths=args.strengths,
+        continuations_per_arm=args.k,
+        horizon=args.horizon,
+        early_stop_fraction=args.early_stop,
+        cost=CostModel(open_weights_share=args.open_share),
+    )
+    for key, value in plan.summary().items():
+        print(f"{key:>24}: {value:,}" if isinstance(value, int) else f"{key:>24}: {value}")
+    if args.stages:
+        print()
+        for stage in plan.staged(args.stages):
+            print(
+                f"stage {stage['stage']}: {stage['runs']} runs, "
+                f"{stage['agent_steps']:,} steps, ${stage['estimated_dollars']:,}"
+            )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -60,6 +84,17 @@ def build_parser() -> argparse.ArgumentParser:
     scoop.add_argument("--log", default="docs/literature/scoop-watch.md")
     scoop.add_argument("--dry-run", action="store_true", help="print the entry, do not log it")
     scoop.set_defaults(func=_cmd_scoop_watch)
+
+    budget = sub.add_parser("budget", help="estimate fork-labelling compute and cost")
+    budget.add_argument("--runs", type=int, default=1000, help="F, forked runs")
+    budget.add_argument("--grid", type=int, default=5, help="G, fork-grid prefixes per run")
+    budget.add_argument("--strengths", type=int, default=2, help="ns, intervention strengths")
+    budget.add_argument("--k", type=int, default=6, help="K, continuations per arm")
+    budget.add_argument("--horizon", type=int, default=20, help="H, steps per continuation")
+    budget.add_argument("--early-stop", type=float, default=0.0, help="share of steps saved")
+    budget.add_argument("--open-share", type=float, default=0.7, help="open-weights share")
+    budget.add_argument("--stages", type=int, default=0, help="print a staged generation plan")
+    budget.set_defaults(func=_cmd_budget)
 
     return parser
 
