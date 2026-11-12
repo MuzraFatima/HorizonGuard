@@ -530,6 +530,49 @@ def _cmd_transfer(args: argparse.Namespace) -> int:
     return 0
 
 
+REPORTS = (
+    ("baselines", "docs/baselines.md"),
+    ("hazard", "docs/hazard.md"),
+    ("effects", "docs/effects.md"),
+    ("guarantees", "docs/guarantees.md"),
+    ("transfer", "docs/transfer.md"),
+)
+
+
+def _cmd_reproduce(args: argparse.Namespace) -> int:
+    """Regenerate every Phase 5 to 9 report, plus the monitor artifacts, from one benchmark."""
+    import os
+    import time
+
+    from horizonguard.monitor.live import load_or_build
+
+    os.environ.setdefault("HORIZONGUARD_ENABLE_ADVERSARY", "1")
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for name, target in REPORTS:
+        start = time.perf_counter()
+        dest = out_dir / Path(target).name
+        # report text is regenerated; any hand-written reading below the marker is preserved
+        previous = dest.read_text(encoding="utf-8") if dest.exists() else ""
+        marker = "\n## Verdict and reading"
+        reading = previous[previous.index(marker) :] if marker in previous else ""
+        tmp = dest.with_suffix(".tmp.md")
+        argv = [name, "--data", args.data, "--write", str(tmp)]
+        if args.quick and name not in ("effects",):
+            argv.append("--quick")
+        main(argv)
+        dest.write_text(
+            tmp.read_text(encoding="utf-8").rstrip() + "\n" + reading,
+            encoding="utf-8",
+            newline="\n",
+        )
+        tmp.unlink()
+        print(f"[reproduce] {name} -> {dest} ({time.perf_counter() - start:.0f}s)")
+    load_or_build(args.data)
+    print("[reproduce] monitor artifacts ready")
+    return 0
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     from horizonguard.monitor.server import serve
 
@@ -630,6 +673,12 @@ def build_parser() -> argparse.ArgumentParser:
     tr.add_argument("--write", help="also write the report to this file")
     tr.add_argument("--quick", action="store_true", help="smaller studies")
     tr.set_defaults(func=_cmd_transfer)
+
+    rp = sub.add_parser("reproduce", help="regenerate every report from one benchmark")
+    rp.add_argument("--data", default="data/driftbench-cf")
+    rp.add_argument("--out", default="docs")
+    rp.add_argument("--quick", action="store_true", help="smaller studies (CI smoke test)")
+    rp.set_defaults(func=_cmd_reproduce)
 
     sv = sub.add_parser("serve", help="run the monitor API and dashboard")
     sv.add_argument("--data", default="data/driftbench-cf")
