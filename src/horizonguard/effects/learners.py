@@ -175,7 +175,7 @@ def cross_fit(
 def effect_calibration(pred: np.ndarray, label: np.ndarray, bins: int = 5) -> dict[str, float]:
     """Calibration of effects, not just rankings: slope and binned error vs paired labels."""
     pred, label = np.ravel(pred), np.ravel(label)
-    slope = float(np.cov(pred, label)[0, 1] / max(np.var(pred), 1e-12))
+    slope = float(np.cov(pred, label)[0, 1] / max(np.var(pred, ddof=1), 1e-12))
     order = np.argsort(pred)
     chunks = np.array_split(order, bins)
     binned = float(np.mean([abs(pred[c].mean() - label[c].mean()) for c in chunks if len(c)]))
