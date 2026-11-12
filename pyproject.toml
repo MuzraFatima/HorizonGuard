@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "horizonguard"
-version = "0.1.0"
+version = "1.0.0"
 description = "Recoverability-aware early warning of goal drift in long-horizon agents"
 readme = "README.md"
 requires-python = ">=3.10"

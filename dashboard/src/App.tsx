@@ -38,7 +38,7 @@ export default function App() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <NavLink to="/" className="brand" aria-label="HorizonGuard home">
+        <NavLink to="/" className="brand">
           <img src="/favicon.svg" width={36} height={36} alt="" />
           <span>
             <span className="brand-name">HorizonGuard</span>

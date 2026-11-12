@@ -110,7 +110,7 @@ export const MiniLine = memo(function MiniLine({
 }) {
   const w = 360;
   const h = 150;
-  const p = { l: 34, r: 10, t: 10, b: 24 };
+  const p = { l: 34, r: 34, t: 10, b: 24 }; // room for centred end labels
   const xs = (i: number) => p.l + (i / Math.max(points.length - 1, 1)) * (w - p.l - p.r);
   const ys = (v: number) => p.t + (1 - v / yMax) * (h - p.t - p.b);
   const d = points.map((pt, i) => `${i ? "L" : "M"}${xs(i)},${ys(pt.y)}`).join("");

@@ -51,7 +51,7 @@ export default function Overview() {
             />
             <Stat
               label="Certified disruption risk"
-              value={`≤ ${pct(data.certificate.alpha)}`}
+              value={`≤${pct(data.certificate.alpha)}`}
               note={`${data.certificate.method.toUpperCase()} on ${data.certificate.n_runs} calibration runs`}
             />
           </div>

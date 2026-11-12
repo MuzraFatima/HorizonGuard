@@ -25,7 +25,7 @@ export default function Guarantees() {
       ) : (
         <>
           <div className="grid grid-4">
-            <Stat label="Target disruption risk" value={`≤ ${pct(data.certificate.alpha)}`} note="alpha, preregistered" />
+            <Stat label="Target disruption risk" value={`≤${pct(data.certificate.alpha)}`} note="alpha, preregistered" />
             <Stat
               label="Certified threshold"
               value={data.certificate.lambda === null ? "never act" : data.certificate.lambda.toFixed(3)}
