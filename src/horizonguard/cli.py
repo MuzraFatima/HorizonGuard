@@ -267,6 +267,74 @@ def _cmd_hazard(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_effects(args: argparse.Namespace) -> int:
+    from horizonguard.effects.evaluate import (
+        evaluate_policies,
+        harm_analysis,
+        learner_table,
+        recoverability,
+    )
+    from horizonguard.eval.leaderboard import load_bench
+
+    bench = load_bench(args.data)
+    lines = ["# Recoverability and intervention effects", "", "## Effect learners (test + OOD)", ""]
+    lines += ["| learner | corr | slope | binned error | MAE |", "| --- | --- | --- | --- | --- |"]
+    for r in learner_table(bench):
+        lines.append(
+            f"| {r['learner']} | {r['corr']:.3f} | {r['slope']:.3f} | "
+            f"{r['binned_error']:.3f} | {r['mae']:.3f} |"
+        )
+    res = evaluate_policies(bench, args.data)
+    lines += [
+        "",
+        f"## Policy value on fresh forks (net benefit, w = {res['weight']}, "
+        f"{res['n_prefixes']} prefixes)",
+        "",
+        "| policy | value | 95% CI | intervene rate |",
+        "| --- | --- | --- | --- |",
+    ]
+    for r in res["policies"]:
+        lo, hi = r["ci"]
+        lines.append(
+            f"| {r['policy']} | {r['value']:.4f} | {lo:.4f} to {hi:.4f} | "
+            f"{r['intervene_rate']:.2f} |"
+        )
+    c = res["cells"]
+    lines += [
+        "",
+        "## RQ2 gate (agent x environment cells)",
+        "",
+        f"- cells where the probability alarm is at or below zero: {c['prob_failing_cells']}",
+        f"- effect-aware value positive with CI excluding zero: {c['effect_wins']} "
+        f"({c['share']:.0%}, target {c['target']:.0%})",
+        f"- effect-aware no worse than doing nothing: {c['effect_no_worse']}",
+        f"- verdict: {'PASS' if c['passes'] else 'NOT MET'}",
+        "",
+        "## Recoverability horizon (fix-by)",
+        "",
+    ]
+    for variant, err in recoverability(bench).items():
+        lines.append(
+            f"- {variant}: recoverable agreement {err['recoverable_agreement']:.2f}, "
+            f"mean absolute error {err['mean_abs_error']:.2f} steps, signed "
+            f"{err['mean_signed_error']:+.2f}, early or exact {err['share_early_or_exact']:.2f}"
+        )
+    harm = harm_analysis(bench)
+    lines += ["", "## When intervening hurts", ""]
+    lines.append(
+        "- share of effect variance explained by compliance: "
+        + ", ".join(f"{a} {v:.2f}" for a, v in harm["compliance_r2"].items())
+    )
+    lines.append("- mean disruption by agent (reminder, restatement, gate, escalation):")
+    for agent, d in harm["disruption_by_agent"].items():
+        lines.append(f"  - {agent}: {', '.join(f'{x:.3f}' for x in d)}")
+    text = "\n".join(lines) + "\n"
+    print(text)
+    if args.write:
+        Path(args.write).write_text(text, encoding="utf-8", newline="\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -336,6 +404,11 @@ def build_parser() -> argparse.ArgumentParser:
     hz.add_argument("--write", help="also write the report to this file")
     hz.add_argument("--quick", action="store_true", help="one comparator, no ablations")
     hz.set_defaults(func=_cmd_hazard)
+
+    ef = sub.add_parser("effects", help="effect models, policy value and recoverability (Phase 7)")
+    ef.add_argument("--data", default="data/driftbench-cf")
+    ef.add_argument("--write", help="also write the report to this file")
+    ef.set_defaults(func=_cmd_effects)
 
     return parser
 
