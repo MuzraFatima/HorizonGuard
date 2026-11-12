@@ -67,6 +67,32 @@ def _cmd_budget(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_power(args: argparse.Namespace) -> int:
+    from horizonguard.eval.power import EffectScenario, power_grid, smallest_design, to_markdown
+
+    results = power_grid(
+        EffectScenario(harm_share=args.harm_share),
+        ks=tuple(args.ks),
+        ns=tuple(args.ns),
+        sims=args.sims,
+        seed=args.seed,
+    )
+    table = to_markdown(results)
+    best = smallest_design(results, target=args.target)
+    summary = (
+        f"Cheapest design reaching {args.target:.0%} heterogeneity power: "
+        f"K={best.k}, {best.n_prefixes} prefixes"
+        if best
+        else f"No design in the grid reaches {args.target:.0%} heterogeneity power"
+    )
+    print(table)
+    print(summary)
+    if args.write:
+        text = f"{table}\n{summary}\n"
+        Path(args.write).write_text(text, encoding="utf-8", newline="\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -95,6 +121,16 @@ def build_parser() -> argparse.ArgumentParser:
     budget.add_argument("--open-share", type=float, default=0.7, help="open-weights share")
     budget.add_argument("--stages", type=int, default=0, help="print a staged generation plan")
     budget.set_defaults(func=_cmd_budget)
+
+    pw = sub.add_parser("power", help="simulation-based power analysis for fork effects")
+    pw.add_argument("--ks", type=int, nargs="+", default=[2, 4, 6, 8, 12])
+    pw.add_argument("--ns", type=int, nargs="+", default=[50, 100, 200, 400])
+    pw.add_argument("--sims", type=int, default=200)
+    pw.add_argument("--harm-share", type=float, default=0.3)
+    pw.add_argument("--target", type=float, default=0.8)
+    pw.add_argument("--seed", type=int, default=0)
+    pw.add_argument("--write", help="also write the table to this file")
+    pw.set_defaults(func=_cmd_power)
 
     return parser
 
