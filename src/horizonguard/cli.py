@@ -203,6 +203,70 @@ def _cmd_baselines(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_hazard(args: argparse.Namespace) -> int:
+    from horizonguard.eval.leaderboard import load_bench
+    from horizonguard.hazard.comparators import SingleEventClassifier
+    from horizonguard.hazard.evaluate import (
+        ablations,
+        attribution,
+        comparators,
+        curve_markdown,
+        lead_curve,
+        lead_gain,
+        score_monitor,
+    )
+    from horizonguard.hazard.model import MultiStateHazard
+    from horizonguard.prereg import load_preregistration
+
+    prereg = load_preregistration()
+    horizon = prereg.horizon_steps
+    bench = load_bench(args.data)
+    stride = 3 if args.quick else 2
+    hazard = score_monitor(MultiStateHazard(horizon=horizon), bench, stride=stride)
+    others = [SingleEventClassifier(horizon=horizon)] if args.quick else comparators(horizon)
+    scored = [hazard, *(score_monitor(m, bench, stride=stride) for m in others)]
+    budget = prereg.false_alarm_budget_per_1000
+    lines = [
+        "# Multi-state hazard model",
+        "",
+        "## Lead-time curve (test + OOD, mean lead in steps, misses count as 0)",
+        "",
+        curve_markdown(lead_curve(scored)),
+        f"## Gain over each comparator at {budget:g} false alarms per 1,000 steps",
+        "",
+    ]
+    gains = []
+    for other in scored[1:]:
+        point, lo, hi = lead_gain(hazard, other, budget, n_boot=500 if args.quick else 2000)
+        gains.append((other.name, point, lo, hi))
+        lines.append(f"- vs {other.name}: {point:+.2f} steps (95% CI {lo:+.2f} to {hi:+.2f})")
+    best = min(gains, key=lambda g: g[1])  # the strongest comparator gives the smallest gain
+    verdict = "SUPPORTED" if best[2] > 0 else "NOT SUPPORTED"
+    lines += ["", f"H1 (lead-time gain over the best baseline): {verdict}", ""]
+    if not args.quick:
+        lines += [
+            "## Ablations",
+            "",
+            curve_markdown(
+                lead_curve(
+                    [hazard, *(score_monitor(m, bench, stride=stride) for m in ablations(horizon))]
+                )
+            ),
+        ]
+    model = MultiStateHazard(horizon=horizon).fit(bench.part("train"), bench.runs)
+    attr = attribution(model, bench.data.feature_names)
+    lines += ["## Early signature (standardised coefficients)", ""]
+    for head, info in attr.items():
+        groups = ", ".join(f"{g} {v:.2f}" for g, v in info["by_group"].items())
+        top = ", ".join(f"{n} ({c:+.2f})" for n, c in info["top"][:5])
+        lines.append(f"- **{head}**: mean |coef| by group: {groups}; top: {top}")
+    text = "\n".join(lines) + "\n"
+    print(text)
+    if args.write:
+        Path(args.write).write_text(text, encoding="utf-8", newline="\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -266,6 +330,12 @@ def build_parser() -> argparse.ArgumentParser:
     bl.add_argument("--write", help="also write the report to this file")
     bl.add_argument("--quick", action="store_true", help="two monitors, fewer bootstraps")
     bl.set_defaults(func=_cmd_baselines)
+
+    hz = sub.add_parser("hazard", help="evaluate the multi-state hazard model (Phase 6)")
+    hz.add_argument("--data", default="data/driftbench-cf")
+    hz.add_argument("--write", help="also write the report to this file")
+    hz.add_argument("--quick", action="store_true", help="one comparator, no ablations")
+    hz.set_defaults(func=_cmd_hazard)
 
     return parser
 
