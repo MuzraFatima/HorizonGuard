@@ -132,7 +132,7 @@ class SyntheticAgent(Agent):
         else:
             pool = GOAL_PHRASES
         phrase = pool[int(rng.integers(len(pool)))]
-        return f"{self.profile.voice} {phrase}; choosing a {kind}-type step."
+        return f"{self.profile.voice} {phrase}."
 
     def act(
         self, env: DriftEnv, observation: str, pressure: float, events: list[str], seed: int

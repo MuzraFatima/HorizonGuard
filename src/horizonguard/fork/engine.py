@@ -109,7 +109,11 @@ def run_episode(
                 fidelity=oracle_fidelity(env, agent, scorer, seed),
                 violated=result.violated,
                 template=env.template,
-                extra={"events": list(events)},
+                extra={
+                    "events": list(events),
+                    # white-box channel for probe upper bounds; never observable
+                    "latent_drift": float(getattr(agent.state, "drift", 0.0)),
+                },
             )
         )
         steps += 1
