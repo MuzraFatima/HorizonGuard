@@ -93,6 +93,24 @@ def _cmd_power(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_pilot(args: argparse.Namespace) -> int:
+    from horizonguard.eval.pilot import run_pilot, to_markdown
+
+    env_rates, agent_rates, profile = run_pilot(args.runs, seed=args.seed, out=args.out)
+    text = (
+        to_markdown(env_rates, "environment")
+        + "\n"
+        + to_markdown(agent_rates, "agent")
+        + f"\n{profile['steps']} steps in {profile['seconds']:.1f}s "
+        f"({profile['steps_per_second']:.0f} steps/s)\n"
+    )
+    print(text)
+    unusable = [r.group for r in env_rates if not r.usable]
+    if unusable:
+        print(f"violation base rate outside the usable range for: {', '.join(unusable)}")
+    return 1 if unusable else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -131,6 +149,12 @@ def build_parser() -> argparse.ArgumentParser:
     pw.add_argument("--seed", type=int, default=0)
     pw.add_argument("--write", help="also write the table to this file")
     pw.set_defaults(func=_cmd_power)
+
+    pilot = sub.add_parser("pilot", help="run the Phase 3 pilot and report base rates")
+    pilot.add_argument("--runs", type=int, default=50, help="runs per environment")
+    pilot.add_argument("--seed", type=int, default=0)
+    pilot.add_argument("--out", help="also write trajectories to this JSONL file")
+    pilot.set_defaults(func=_cmd_pilot)
 
     return parser
 
