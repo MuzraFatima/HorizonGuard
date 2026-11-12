@@ -31,8 +31,12 @@ def test_stress_test_rows(monkeypatch):
     adversary = importlib.import_module("horizonguard.adversary")
 
     def score(steps):
-        return sum(s.action.startswith(("follow", "read-opinion", "tune", "clean")) for s in
-                   steps[-5:]) / 5
+        return (
+            sum(
+                s.action.startswith(("follow", "read-opinion", "tune", "clean")) for s in steps[-5:]
+            )
+            / 5
+        )
 
     res = adversary.stress_test(score, 0.6, score, 0.6, runs=6, envs=("research",))
     assert [r["setting"] for r in res.rows][:2] == ["naive agent", "stealth agent"]

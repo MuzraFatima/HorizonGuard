@@ -43,3 +43,11 @@ def test_cold_start_curve(data):
     rows = cold_start_curve(data, "family", "birch", sizes=(0, 2), alpha=0.2, reps=3)
     assert rows and rows[0]["n_target"] == 0
     assert {"pooled_violation", "weighted_vacuous", "effect_mae"} <= set(rows[0])
+
+
+def test_cli_transfer(small_bench, tmp_path):
+    from horizonguard.cli import main
+
+    out = tmp_path / "t.md"
+    assert main(["transfer", "--data", str(small_bench), "--write", str(out), "--quick"]) == 0
+    assert "Transfer matrix" in out.read_text(encoding="utf-8")

@@ -407,6 +407,129 @@ def _cmd_guarantees(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_transfer(args: argparse.Namespace) -> int:
+    import os
+
+    from horizonguard.baselines import FeatureRiskMonitor, RuleMonitor
+    from horizonguard.eval.dataset import step_scores
+    from horizonguard.eval.leaderboard import load_bench
+    from horizonguard.eval.metrics import threshold_at_budget
+    from horizonguard.eval.scaling import scaling_study
+    from horizonguard.prereg import load_preregistration
+    from horizonguard.transfer.coldstart import cold_start_curve
+    from horizonguard.transfer.matrix import summarise, transfer_matrix
+
+    prereg = load_preregistration()
+    bench = load_bench(args.data)
+    lines = ["# Transfer, cold start, limits and stealth drift", "", "## Transfer matrix", ""]
+    lines += [
+        "| axis | held out | risk AUROC drop | risk MAE ratio | effect MAE ratio | "
+        "guarantee risk (unseen) | holds |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = transfer_matrix(bench.data, alpha=prereg.guarantee.alpha)
+    for r in rows:
+        lines.append(
+            f"| {r['axis']} | {r['held_out']} | {r['risk_auroc_drop']:.3f} | "
+            f"{r['risk_mae_ratio']:.2f} | {r['effect_mae_ratio']:.2f} | "
+            f"{r['guarantee_risk_ood']:.4f} | {r['guarantee_holds_ood']} |"
+        )
+    s = summarise(rows, prereg.thresholds["transfer_drop_max"])
+    lines += [
+        "",
+        f"- H4a (signatures transfer, median AUROC drop {s['median_risk_auroc_drop']:.3f} "
+        f"<= {prereg.thresholds['transfer_drop_max']}): "
+        f"{'SUPPORTED' if s['h4a_supported'] else 'NOT SUPPORTED'}",
+        f"- H4b (effects degrade more than risk; median MAE ratio effect "
+        f"{s['median_effect_mae_ratio']:.2f} vs risk {s['median_risk_mae_ratio']:.2f}): "
+        f"{'SUPPORTED' if s['h4b_supported'] else 'NOT SUPPORTED'}",
+        f"- disruption certificate held on {s['share_guarantee_holds']:.0%} of unseen splits",
+        "",
+        "## Cold start (new family, alpha = 0.02)",
+        "",
+        "| family | N target runs | source | target | pooled | weighted | effect MAE |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    reps = 5 if args.quick else 30
+    families = ("birch",) if args.quick else ("birch", "delta", "cobalt")
+    for fam in families:
+        for r in cold_start_curve(bench.data, "family", fam, alpha=0.02, reps=reps):
+            cells = []
+            for m in ("source", "target", "pooled", "weighted"):
+                state = (
+                    "vacuous"
+                    if r[f"{m}_vacuous"] > 0.5
+                    else (f"rescue {r[f'{m}_rescue']:.3f}, viol {r[f'{m}_violation']:.0%}")
+                )
+                cells.append(state)
+            lines.append(
+                f"| {fam} | {r['n_target']} | " + " | ".join(cells) + f" | {r['effect_mae']:.3f} |"
+            )
+    monitor = FeatureRiskMonitor().fit(bench.part("train"), bench.runs)
+    cal = bench.part_runs("calibration")
+    viol = [r.violation_step for r in cal]
+    thr = threshold_at_budget(
+        step_scores(cal, monitor.score_steps, 2),
+        viol,
+        prereg.false_alarm_budget_per_1000,
+        prereg.horizon_steps,
+    )
+    cells, law = scaling_study(monitor.score_steps, thr, runs_per_cell=8 if args.quick else 40)
+    lines += [
+        "",
+        "## Lead-time scaling",
+        "",
+        "| drift strength | context | violation | detection | mean lead |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for c in cells:
+        lines.append(
+            f"| {c.strength} | {c.context} | {c.violation_rate:.2f} | {c.detection_rate:.2f} | "
+            f"{c.mean_lead:.2f} |"
+        )
+    pre, exp = law["preregistered"], law["exploratory"]
+    lines += [
+        "",
+        f"- preregistered law (log strength, log context): out-of-sample R^2 "
+        f"{pre['r2_loo']:.2f} (H5a needs 0.5): "
+        f"{'SUPPORTED' if pre['r2_loo'] >= 0.5 else 'NOT SUPPORTED'}",
+        f"- exploratory law with (log strength)^2: out-of-sample R^2 {exp['r2_loo']:.2f}, "
+        f"coefficients {', '.join(f'{x:+.2f}' for x in exp['coef'])}",
+    ]
+    if os.environ.get("HORIZONGUARD_ENABLE_ADVERSARY") == "1":
+        from horizonguard.adversary import stress_test
+
+        rule = RuleMonitor().fit(bench.part("train"), bench.runs)
+        thr2 = threshold_at_budget(
+            step_scores(cal, rule.score_steps, 2),
+            viol,
+            prereg.false_alarm_budget_per_1000,
+            prereg.horizon_steps,
+        )
+        res = stress_test(
+            monitor.score_steps, thr, rule.score_steps, thr2, runs=8 if args.quick else 60
+        )
+        lines += [
+            "",
+            "## Stealth-drift stress test (simulation only)",
+            "",
+            "| setting | violating runs | violation rate | evasion | mean lead |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for r in res.rows:
+            lines.append(
+                f"| {r['setting']} | {r['violating_runs']} | {r['violation_rate']:.2f} | "
+                f"{r['evasion_rate']:.2f} | {r['mean_lead']:.2f} |"
+            )
+    else:
+        lines += ["", "Stealth-drift study skipped (set HORIZONGUARD_ENABLE_ADVERSARY=1)."]
+    text = "\n".join(lines) + "\n"
+    print(text)
+    if args.write:
+        Path(args.write).write_text(text, encoding="utf-8", newline="\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -487,6 +610,12 @@ def build_parser() -> argparse.ArgumentParser:
     gu.add_argument("--write", help="also write the report to this file")
     gu.add_argument("--quick", action="store_true", help="fewer resamples and sizes")
     gu.set_defaults(func=_cmd_guarantees)
+
+    tr = sub.add_parser("transfer", help="transfer, cold start, scaling and stress (Phase 9)")
+    tr.add_argument("--data", default="data/driftbench-cf")
+    tr.add_argument("--write", help="also write the report to this file")
+    tr.add_argument("--quick", action="store_true", help="smaller studies")
+    tr.set_defaults(func=_cmd_transfer)
 
     return parser
 
