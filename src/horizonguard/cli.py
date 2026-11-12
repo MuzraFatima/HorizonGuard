@@ -530,6 +530,20 @@ def _cmd_transfer(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    from horizonguard.monitor.server import serve
+
+    server = serve(args.data, args.host, args.port, args.static)
+    print(f"HorizonGuard dashboard on http://{args.host}:{args.port} (Ctrl+C to stop)")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -616,6 +630,13 @@ def build_parser() -> argparse.ArgumentParser:
     tr.add_argument("--write", help="also write the report to this file")
     tr.add_argument("--quick", action="store_true", help="smaller studies")
     tr.set_defaults(func=_cmd_transfer)
+
+    sv = sub.add_parser("serve", help="run the monitor API and dashboard")
+    sv.add_argument("--data", default="data/driftbench-cf")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8765)
+    sv.add_argument("--static", default="dashboard/dist")
+    sv.set_defaults(func=_cmd_serve)
 
     return parser
 
