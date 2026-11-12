@@ -113,3 +113,14 @@ def test_detector_accuracy_over_many_seeds():
     assert pelt_hits / n >= 0.9
     assert covered / n >= 0.9
     assert false_alarms / n <= 0.15
+
+
+def test_hinge_model_locates_gradual_drift():
+    rng = np.random.default_rng(8)
+    t = np.arange(50)
+    x = 0.9 - 0.02 * np.maximum(0, t - 25) + rng.normal(0, 0.02, 50)
+    hinge = onset_interval(x, model="hinge")
+    assert hinge.contains(25)
+    assert hinge.drop == pytest.approx(0.02 * 24, abs=0.08)
+    with pytest.raises(ValueError):
+        onset_interval(x, model="cubic")

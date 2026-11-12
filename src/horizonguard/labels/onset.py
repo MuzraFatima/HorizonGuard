@@ -137,25 +137,39 @@ def pelt_onset(fidelity: np.ndarray, min_drop: float = 0.05, **kwargs) -> int | 
 
 
 def onset_interval(
-    fidelity: np.ndarray, confidence: float = 0.95, min_size: int = 2
+    fidelity: np.ndarray,
+    confidence: float = 0.95,
+    min_size: int = 2,
+    model: str = "shift",
 ) -> OnsetInterval | None:
-    """Profile-likelihood interval for a single downward mean shift."""
+    """Profile-likelihood interval for a single downward change.
+
+    ``model="shift"`` fits a step change in mean. ``model="hinge"`` fits a flat
+    segment followed by a linear decline, which suits gradual drift. ``drop``
+    is the fitted fall in fidelity from onset to the end of the run.
+    """
+    if model not in {"shift", "hinge"}:
+        raise ValueError("model must be 'shift' or 'hinge'")
     x = np.asarray(fidelity, dtype=float)
     n = x.size
     if n < 2 * min_size:
         return None
     sigma2 = _noise_scale(x) ** 2
     taus = np.arange(min_size, n - min_size + 1)
-    cs = np.cumsum(x)
-    total = cs[-1]
+    steps = np.arange(n, dtype=float)
     ll = np.empty(taus.size)
     drops = np.empty(taus.size)
     for i, tau in enumerate(taus):
-        m1 = cs[tau - 1] / tau
-        m2 = (total - cs[tau - 1]) / (n - tau)
-        rss = np.sum((x[:tau] - m1) ** 2) + np.sum((x[tau:] - m2) ** 2)
+        if model == "shift":
+            m1, m2 = x[:tau].mean(), x[tau:].mean()
+            rss = np.sum((x[:tau] - m1) ** 2) + np.sum((x[tau:] - m2) ** 2)
+            drops[i] = m1 - m2
+        else:
+            design = np.column_stack([np.ones(n), np.maximum(0.0, steps - tau)])
+            coef, *_ = np.linalg.lstsq(design, x, rcond=None)
+            rss = float(np.sum((x - design @ coef) ** 2))
+            drops[i] = -coef[1] * (n - 1 - tau)
         ll[i] = -rss / (2 * sigma2)
-        drops[i] = m1 - m2
     valid = drops > 0
     if not valid.any():
         return None
