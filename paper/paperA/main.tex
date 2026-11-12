@@ -1,0 +1,30 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs,amsmath,hyperref}
+
+\title{DriftBench-CF: Counterfactual Fork Labels for Goal Drift in Long-Horizon Agents}
+\author{Muzra Fatima}
+\date{Draft, November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Agent-monitoring benchmarks record what happened, not what would have happened under intervention. We
+release DriftBench-CF, a goal-drift benchmark whose labels come from seed-paired forks. For every
+labelled prefix it gives rollout-grounded violation risk and, for four goal re-anchoring strengths, the
+rescue and disruption probabilities. Version 1 covers 4 environments, 11 synthetic agents and 5 drift
+types: 220 runs and 1,179 labelled prefixes. Fork noise is calibrated (predicted SE 0.145 against an
+observed replicate SD of 0.137), and effect heterogeneity is significant for every intervention strength.
+\end{abstract}
+
+% Section outline: see ../paperA_outline.md
+\section{Introduction}
+\section{Estimands and identification}
+\section{Benchmark construction}
+\section{Label quality}
+\section{Baselines}
+\section{When intervening hurts}
+\section{Limitations}
+
+\end{document}
