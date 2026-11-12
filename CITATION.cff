@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use HorizonGuard or DriftBench-CF, please cite it as below."
+title: "HorizonGuard: Recoverability-Aware Early Warning of Goal Drift"
+type: software
+authors:
+  - family-names: Fatima
+    given-names: Muzra
+repository-code: "https://github.com/MuzraFatima/HorizonGuard"
+license: MIT
+version: 0.1.0
+date-released: "2026-11-12"
+keywords:
+  - goal drift
+  - LLM agents
+  - agent monitoring
+  - counterfactual evaluation
+  - conformal risk control
