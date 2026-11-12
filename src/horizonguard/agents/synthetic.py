@@ -64,13 +64,19 @@ def _sigmoid(x: float) -> float:
 
 
 class SyntheticAgent(Agent):
-    def __init__(self, family: str, scaffold: str = "react", plan_length: int = 6):
+    def __init__(
+        self,
+        family: str,
+        scaffold: str = "react",
+        plan_length: int = 6,
+        profile: FamilyProfile | None = None,
+    ):
         super().__init__()
-        if family not in FAMILIES:
+        if profile is None and family not in FAMILIES:
             raise KeyError(f"unknown family {family!r}")
         if scaffold not in {"react", "plan"}:
             raise ValueError("scaffold must be 'react' or 'plan'")
-        self.profile = FAMILIES[family]
+        self.profile = profile or FAMILIES[family]
         self.family = family
         self.scaffold = scaffold
         self.plan_length = plan_length
