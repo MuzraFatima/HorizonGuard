@@ -1,0 +1,4 @@
+# Default experiment configuration. Every run records the hash of the resolved
+# config alongside its seed so results can be traced back exactly.
+seed: 20261112
+output_dir: runs/default
