@@ -30,6 +30,19 @@ def _cmd_gap_matrix(args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
+def _cmd_scoop_watch(args: argparse.Namespace) -> int:
+    from horizonguard.literature import scoop_watch
+
+    log = Path(args.log)
+    papers, entry = scoop_watch.run(log)
+    if args.dry_run:
+        print(entry)
+    else:
+        scoop_watch.append_entry(log, entry)
+        print(f"logged {len(papers)} new papers to {log}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -42,6 +55,11 @@ def build_parser() -> argparse.ArgumentParser:
     gap.add_argument("--path", help="gap matrix YAML (defaults to docs/literature)")
     gap.add_argument("--write", help="write the markdown table to this file")
     gap.set_defaults(func=_cmd_gap_matrix)
+
+    scoop = sub.add_parser("scoop-watch", help="run the weekly arXiv scoop-watch queries")
+    scoop.add_argument("--log", default="docs/literature/scoop-watch.md")
+    scoop.add_argument("--dry-run", action="store_true", help="print the entry, do not log it")
+    scoop.set_defaults(func=_cmd_scoop_watch)
 
     return parser
 

@@ -1,0 +1,22 @@
+name: Scoop-watch
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  scoop-watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - name: Run weekly queries
+        run: horizonguard scoop-watch --dry-run | tee scoop-watch-entry.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scoop-watch-entry
+          path: scoop-watch-entry.md
