@@ -1,0 +1,26 @@
+# Preregistered constants. Changing any value after data collection starts is a
+# deviation and must be logged in docs/preregistration.md, section "Deviations".
+version: 1
+frozen_on: 2026-11-12
+
+horizon_steps: 20                 # H, continuation horizon for potential outcomes
+disruption_weight: 2.0            # w in net benefit = rescue - w * disruption
+false_alarm_budget_per_1000: 5.0  # fixed budget for lead-time comparisons
+recoverability_eps: 0.05          # eps in T_rec(eps)
+
+guarantee:
+  alpha: 0.05                     # target disruption risk
+  delta: 0.10                     # 1 - delta confidence
+  min_rescue_retention: 0.6       # share of rescues the certified policy must keep
+
+thresholds:
+  judge_human_alpha: 0.67         # Krippendorff alpha required for the fidelity judge
+  calibration_error_max: 0.05     # error vs rollout-grounded risk (RQ1)
+  effect_policy_cell_share: 0.5   # share of cells where effect-aware policy must win (RQ2)
+  transfer_drop_max: 0.10         # acceptable AUROC drop for signature transfer (RQ4)
+
+statistics:
+  seeds_per_model: 5
+  bootstrap_resamples: 2000
+  correction: holm
+  split_by: [agent, scaffold, environment, template]
