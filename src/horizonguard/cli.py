@@ -11,6 +11,8 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+import numpy as np
+
 from horizonguard import __version__
 
 
@@ -335,6 +337,76 @@ def _cmd_effects(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_guarantees(args: argparse.Namespace) -> int:
+    from horizonguard.eval.leaderboard import load_bench
+    from horizonguard.guarantees.evaluate import (
+        coverage_study,
+        held_out,
+        sample_complexity,
+        time_uniform,
+    )
+    from horizonguard.prereg import load_preregistration
+
+    prereg = load_preregistration()
+    alpha = prereg.guarantee.alpha
+    bench = load_bench(args.data)
+    reps = 20 if args.quick else 200
+    lines = [
+        "# Disruption-controlled guarantees",
+        "",
+        "## Held-out disruption (certified on calibration runs, measured on fresh forks)",
+        "",
+        "| method | alpha | lambda | vacuous | held-out risk | rescue | retention | act rate |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for r in held_out(bench, args.data):
+        lam = "never" if not np.isfinite(r["lambda"]) else f"{r['lambda']:.3f}"
+        lines.append(
+            f"| {r['method']} | {r['alpha']:.2f} | {lam} | {r['vacuous']} | "
+            f"{r['held_risk']:.4f} | {r['held_rescue']:.4f} | {r['retention']:.2f} | "
+            f"{r['act_rate']:.2f} |"
+        )
+    cov = coverage_study(bench, alpha, reps=reps)
+    lines += [
+        "",
+        f"## Coverage over {reps} resampled calibration splits (alpha = {alpha}, "
+        f"delta = {cov['delta']})",
+        "",
+        f"- LTT: held-out risk above alpha in {cov['ltt_violation_rate']:.1%} of resamples "
+        f"(must be at most delta); vacuous in {cov['ltt_vacuous_rate']:.0%}",
+        f"- CRC: mean held-out risk {cov['crc_mean_risk']:.4f} (must be at most alpha)",
+        "",
+        "## Sample complexity",
+        "",
+        "| calibration runs | LTT vacuous | LTT violations | LTT retention | CRC mean risk |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    sizes = (10, 20) if args.quick else (20, 40, 80, 120)
+    for r in sample_complexity(bench, alpha, sizes=sizes, reps=max(10, reps // 3)):
+        lines.append(
+            f"| {r['n_cal']:.0f} | {r['ltt_vacuous_rate']:.0%} | {r['ltt_violation_rate']:.1%} | "
+            f"{r['ltt_retention']:.2f} | {r['crc_mean_risk']:.4f} |"
+        )
+    tu = time_uniform(bench)
+    lines += [
+        "",
+        "## Time-uniform false alarms (betting e-process vs fixed threshold)",
+        "",
+        f"- e-process (m0 = {tu['m0']:.3f}): healthy runs with any false alarm "
+        f"{tu['eprocess_run_fpr']:.1%} (bound {tu['alpha']:.0%}), detection "
+        f"{tu['eprocess_detection']:.2f}, mean lead {tu['eprocess_mean_lead']:.2f} steps",
+        f"- fixed threshold at the per-step budget: healthy runs with a false alarm "
+        f"{tu['fixed_run_fpr']:.1%}, detection {tu['fixed_detection']:.2f}, mean lead "
+        f"{tu['fixed_mean_lead']:.2f} steps",
+        f"- held-out healthy runs: {tu['healthy_runs']}",
+    ]
+    text = "\n".join(lines) + "\n"
+    print(text)
+    if args.write:
+        Path(args.write).write_text(text, encoding="utf-8", newline="\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -409,6 +481,12 @@ def build_parser() -> argparse.ArgumentParser:
     ef.add_argument("--data", default="data/driftbench-cf")
     ef.add_argument("--write", help="also write the report to this file")
     ef.set_defaults(func=_cmd_effects)
+
+    gu = sub.add_parser("guarantees", help="certified disruption risk and coverage (Phase 8)")
+    gu.add_argument("--data", default="data/driftbench-cf")
+    gu.add_argument("--write", help="also write the report to this file")
+    gu.add_argument("--quick", action="store_true", help="fewer resamples and sizes")
+    gu.set_defaults(func=_cmd_guarantees)
 
     return parser
 
