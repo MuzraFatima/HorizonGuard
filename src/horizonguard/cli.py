@@ -130,6 +130,27 @@ def _cmd_data(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_audit(args: argparse.Namespace) -> int:
+    import json
+
+    from horizonguard.bench.generate import BenchConfig, load_prefixes
+    from horizonguard.bench.quality import arm_noise, gate_passes, replicate_agreement, report
+
+    records = load_prefixes(args.data)
+    manifest = json.loads((Path(args.data) / "manifest.json").read_text(encoding="utf-8"))
+    cfg = BenchConfig.from_dict(manifest["config"])
+    agreement = (
+        replicate_agreement(records, cfg, n=args.replicates, arm=args.arm)
+        if args.replicates
+        else None
+    )
+    text = report(records, agreement)
+    print(text)
+    if args.write:
+        Path(args.write).write_text(text, encoding="utf-8", newline="\n")
+    return 0 if gate_passes(arm_noise(records)) else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="horizonguard",
@@ -180,6 +201,13 @@ def build_parser() -> argparse.ArgumentParser:
     data.add_argument("--out", help="output directory (defaults to the config)")
     data.add_argument("--replicates", type=int, help="override runs per cell")
     data.set_defaults(func=_cmd_data)
+
+    audit = sub.add_parser("audit", help="label-noise audit of a generated DriftBench-CF")
+    audit.add_argument("--data", default="data/driftbench-cf")
+    audit.add_argument("--replicates", type=int, default=40, help="prefixes to re-fork")
+    audit.add_argument("--arm", type=int, default=3, help="arm index for replicate checks")
+    audit.add_argument("--write", help="also write the report to this file")
+    audit.set_defaults(func=_cmd_audit)
 
     return parser
 
