@@ -167,13 +167,15 @@ class ForkEngine:
         snap: Snapshot,
         arms: Sequence[Intervention] = tuple(Intervention),
         k: int = 6,
+        seed_offset: int = 0,
     ) -> ForkResult:
+        """Fork ``k`` continuations per arm; ``seed_offset`` draws fresh seeds for top-ups."""
         arms = tuple(arms)
         if not arms or arms[0] is not Intervention.NONE:
             raise ValueError("the first arm must be the no-intervention arm")
         if not agent.counterfactual_ok:
             raise ValueError(f"{agent.name} cannot be snapshotted; no counterfactual forks")
-        seeds = [fork_seed(snap.seed, snap.t, j) for j in range(k)]
+        seeds = [fork_seed(snap.seed, snap.t, j) for j in range(seed_offset, seed_offset + k)]
         outcomes = np.zeros((len(arms), k), dtype=np.int8)
         early = np.full((len(arms), k, COMPLIANCE_WINDOW), np.nan)
         steps = 0
