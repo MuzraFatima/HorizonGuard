@@ -91,4 +91,4 @@ freeze date is listed here with date, reason and expected impact.
 
 | Date | Change | Reason | Impact |
 | --- | --- | --- | --- |
-| none yet | | | |
+| 2026-11-12 | Phase 6 causal encoder is the hand-built prefix featurizer, not a learned sequence model | Keeps the stack dependency-free and CPU-only for synthetic v1 | H1 tested with a weaker encoder; re-test with a learned encoder on LLM agents |
