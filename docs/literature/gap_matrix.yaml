@@ -1,0 +1,207 @@
+# Gap matrix v1. Rows are prior works, columns follow the blueprint audit.
+# Status "abstract" means the row is based on the abstract or a summary only and
+# must be checked against the full text before it is cited (Phase 1 task).
+columns:
+  target: [drift, failure, harm, compositional-risk, text-safety]
+  signal: [black-box, white-box, both]
+  labels: [observed, rollout, counterfactual, none]
+  guarantee: [none, false-alarm, miss, anytime-valid, harm]
+  transfer: [none, within-domain, cross-site, cross-model, cross-agent]
+  intervention: [none, abort, block, reminder, refresh, routing]
+
+works:
+  - id: arike2025
+    title: Evaluating Goal Drift in Language Model Agents
+    venue: AIES 2025
+    arxiv: "2505.02709"
+    target: drift
+    signal: black-box
+    labels: observed
+    guarantee: none
+    transfer: none
+    intervention: none
+    leaves_open: Retrospective measurement only; no forecasting and no intervention.
+    status: abstract
+  - id: safetydrift
+    title: "SafetyDrift: Predicting When AI Agents Cross the Line Before They Actually Do"
+    arxiv: "2603.27148"
+    target: harm
+    signal: black-box
+    labels: observed
+    guarantee: none
+    transfer: cross-model
+    intervention: none
+    leaves_open: Hand-designed tool-level states, mostly one model, no intervention effect.
+    status: abstract
+  - id: goaldrift-probes
+    title: "Goal-Drift Probes: Anticipating Multi-Turn LLM Agent Failure From Mid-Network Activations"
+    venue: ICML 2026
+    target: drift
+    signal: white-box
+    labels: observed
+    guarantee: none
+    transfer: none
+    intervention: none
+    leaves_open: White-box only, one environment, no calibration or intervention.
+    status: abstract
+  - id: webagent-monitor
+    title: "Monitoring Web Agents Without Internal Signals"
+    arxiv: "2609.02057"
+    target: failure
+    signal: black-box
+    labels: observed
+    guarantee: none
+    transfer: cross-site
+    intervention: none
+    leaves_open: Targets task failure, not goal drift; transfers across sites, not agents.
+    status: abstract
+  - id: doomed
+    title: "Doomed from the Start: Early Abort of LLM Agent Episodes"
+    arxiv: "2607.06503"
+    target: failure
+    signal: white-box
+    labels: observed
+    guarantee: miss
+    transfer: none
+    intervention: abort
+    leaves_open: White-box, in-distribution, optimised to save compute rather than rescue runs.
+    status: abstract
+  - id: online-safety-monitoring
+    title: Online Safety Monitoring for LLMs
+    arxiv: "2607.02510"
+    target: harm
+    signal: black-box
+    labels: observed
+    guarantee: false-alarm
+    transfer: none
+    intervention: none
+    leaves_open: Controls false alarms and misses, not harm caused by intervening.
+    status: abstract
+  - id: e-valuator
+    title: "E-valuator: Reliable Agent Verifiers with Sequential Hypothesis Testing"
+    arxiv: "2512.03109"
+    target: failure
+    signal: black-box
+    labels: observed
+    guarantee: anytime-valid
+    transfer: none
+    intervention: none
+    leaves_open: Anytime-valid tests on verifier scores; no intervention-harm control.
+    status: abstract
+  - id: riskshield
+    title: "Safe Actions Can Form Unsafe Traces (CER-Bench, RiskShield)"
+    venue: NeurIPS 2026
+    target: compositional-risk
+    signal: black-box
+    labels: observed
+    guarantee: false-alarm
+    transfer: cross-model
+    intervention: block
+    leaves_open: Compositional risk rather than gradual drift; blocks suffixes, no recoverability forecast.
+    status: abstract
+  - id: streamguard
+    title: "Predict, Don't React: Value-Based Safety Forecasting for LLM Streaming"
+    arxiv: "2604.03962"
+    target: text-safety
+    signal: black-box
+    labels: rollout
+    guarantee: none
+    transfer: none
+    intervention: none
+    leaves_open: Text streams only; no agents and no calibration analysis.
+    status: abstract
+  - id: intervention-paradox
+    title: Accurate Failure Prediction in Agents Does Not Imply Effective Failure Prevention
+    arxiv: "2602.03338"
+    target: failure
+    signal: black-box
+    labels: observed
+    guarantee: none
+    transfer: cross-model
+    intervention: reminder
+    leaves_open: Diagnoses the paradox with a pilot rule; no per-step effect model, no guarantees.
+    status: abstract
+  - id: cir
+    title: "CIR: Causal Evaluation of Harness Recovery in LLM Agents"
+    arxiv: "2610.00372"
+    target: failure
+    signal: black-box
+    labels: counterfactual
+    guarantee: none
+    transfer: none
+    intervention: refresh
+    leaves_open: One environment and one model; observation refresh rather than goal drift.
+    status: summary
+  - id: drift-no-more
+    title: "Drift No More? Context Equilibria in Multi-Turn LLM Interactions"
+    arxiv: "2510.07777"
+    target: drift
+    signal: black-box
+    labels: observed
+    guarantee: none
+    transfer: none
+    intervention: reminder
+    leaves_open: Dialogue user simulator, average effect only, no per-step forecast.
+    status: abstract
+  - id: distributed-attacks
+    title: Distributed Attacks in Persistent-State AI Control
+    arxiv: "2607.02514"
+    target: harm
+    signal: black-box
+    labels: observed
+    guarantee: none
+    transfer: none
+    intervention: none
+    leaves_open: Attack side; not a drift-forecasting monitor.
+    status: abstract
+
+pillars:
+  - id: P1
+    name: Multi-state goal process
+    closest: [safetydrift]
+    difference: >-
+      Onset, violation and recovery hazards are learned from black-box embeddings
+      and supervised by rollout risk, instead of hand-built absorbing tool states.
+    novelty: 7.0
+    scoop_risk: medium
+  - id: P2
+    name: Recoverability and effect forecasting
+    closest: [cir, intervention-paradox, drift-no-more]
+    difference: >-
+      Per-prefix effect of graded goal re-anchoring with a fix-by horizon and an
+      abstention option, estimated across agents rather than one model and one
+      environment, and for goal drift rather than observation staleness.
+    novelty: 8.5
+    scoop_risk: high
+  - id: P3
+    name: Disruption control and guarantees
+    closest: [online-safety-monitoring, e-valuator, riskshield]
+    difference: >-
+      Risk control is applied to counterfactual intervention-induced harm,
+      calibrated with forks, rather than to false alarms or misses.
+    novelty: 8.5
+    scoop_risk: medium
+  - id: P4
+    name: Transfer and cold start
+    closest: [riskshield, webagent-monitor]
+    difference: >-
+      Leave-one-family and scaffold-out evaluation reported separately for risk,
+      effect and guarantee, with a cold-start recalibration procedure.
+    novelty: 7.5
+    scoop_risk: medium
+  - id: P5
+    name: DriftBench-CF benchmark
+    closest: [streamguard, riskshield, arike2025]
+    difference: >-
+      First agent goal-drift benchmark with graded fidelity, onset intervals,
+      rollout-grounded risk and counterfactual intervention effects per prefix.
+    novelty: 8.0
+    scoop_risk: low
+  - id: P6
+    name: Limits and stealth drift
+    closest: [distributed-attacks]
+    difference: >-
+      Lead-time scaling laws plus an adaptive stealth-drift stress test of the
+      whole monitoring stack, run only inside the simulator.
+    novelty: 6.5
+    scoop_risk: medium
