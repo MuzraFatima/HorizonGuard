@@ -1,0 +1,16 @@
+stages:
+  driftbench:
+    cmd: horizonguard data --config configs/driftbench.yaml
+    deps:
+      - configs/driftbench.yaml
+      - src/horizonguard/bench
+      - src/horizonguard/envs
+      - src/horizonguard/agents
+      - src/horizonguard/fork
+    outs:
+      - data/driftbench-cf
+  audit:
+    cmd: horizonguard audit --data data/driftbench-cf --write docs/label_noise.md
+    deps:
+      - data/driftbench-cf
+      - src/horizonguard/bench/quality.py
